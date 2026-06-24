@@ -5,6 +5,7 @@
 #include "FluentDesign/Button.hpp"
 #include "FluentDesign/Toggle.hpp"
 #include "AppSettings/SettingsPages/SettingsPage.hpp"
+#include "Configuration/Config.hpp"
 
 namespace AnyFSE::App::AppSettings::Settings::Page
 {
@@ -40,9 +41,10 @@ namespace AnyFSE::App::AppSettings::Settings::Page
 
         void OpenMSSettingsStartupApps();
 
-        void AddStartupAppLine(const std::wstring &path, const std::wstring &args, bool enabled);
+        void AddStartupAppLine(const StartupApp &app);
         Toggle *GetStartupLineToggle(SettingsLine *pLine);
-        void SetStartupAppLine(SettingsLine *pLine, const std::wstring &path, const std::wstring &args);
+        StartupApp GetStartupAppLine(SettingsLine *pLine);
+        void SetStartupAppLine(SettingsLine *pLine, const StartupApp &app);
         void OnStartupAdd();
         void OnStartupModify(SettingsLine *pLine);
         void OnStartupDelete(SettingsLine *pLine);

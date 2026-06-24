@@ -24,6 +24,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
+#include <cwctype>
 #include "Config.hpp"
 #include "Tools/Unicode.hpp"
 #include "Tools/Paths.hpp"
@@ -39,7 +41,111 @@ namespace AnyFSE::Configuration
     namespace fs = std::filesystem;
     using jp = json::json_pointer;
 
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StartupApp, Path, Args, Enabled)
+    static std::wstring ToLower(std::wstring value)
+    {
+        std::transform(value.begin(), value.end(), value.begin(),
+            [](wchar_t ch) { return static_cast<wchar_t>(std::towlower(ch)); });
+        return value;
+    }
+
+    std::wstring StartupRunModeToString(StartupRunMode mode)
+    {
+        switch (mode)
+        {
+            case StartupRunMode::ElevatedTask: return L"ElevatedTask";
+            case StartupRunMode::Protocol:     return L"Protocol";
+            case StartupRunMode::Script:       return L"Script";
+            case StartupRunMode::NormalExe:
+            default:                           return L"NormalExe";
+        }
+    }
+
+    StartupRunMode StartupRunModeFromString(const std::wstring &value, StartupRunMode defaultMode)
+    {
+        const std::wstring mode = ToLower(value);
+        if (mode == L"normalexe")
+        {
+            return StartupRunMode::NormalExe;
+        }
+        if (mode == L"elevatedtask")
+        {
+            return StartupRunMode::ElevatedTask;
+        }
+        if (mode == L"protocol")
+        {
+            return StartupRunMode::Protocol;
+        }
+        if (mode == L"script")
+        {
+            return StartupRunMode::Script;
+        }
+        return defaultMode;
+    }
+
+    std::wstring DesktopExitActionToString(DesktopExitAction action)
+    {
+        switch (action)
+        {
+            case DesktopExitAction::LockWorkStation:    return L"LockWorkStation";
+            case DesktopExitAction::RunCommand:         return L"RunCommand";
+            case DesktopExitAction::LockThenRunCommand: return L"LockThenRunCommand";
+            case DesktopExitAction::None:
+            default:                                    return L"None";
+        }
+    }
+
+    DesktopExitAction DesktopExitActionFromString(const std::wstring &value, DesktopExitAction defaultAction)
+    {
+        const std::wstring action = ToLower(value);
+        if (action == L"none" || action.empty())
+        {
+            return DesktopExitAction::None;
+        }
+        if (action == L"lockworkstation")
+        {
+            return DesktopExitAction::LockWorkStation;
+        }
+        if (action == L"runcommand")
+        {
+            return DesktopExitAction::RunCommand;
+        }
+        if (action == L"lockthenruncommand")
+        {
+            return DesktopExitAction::LockThenRunCommand;
+        }
+        return defaultAction;
+    }
+
+    void from_json(const json &j, StartupApp &app)
+    {
+        app = StartupApp();
+        app.Name              = j.value("Name",              app.Name);
+        app.Path              = j.value("Path",              app.Path);
+        app.Args              = j.value("Args",              app.Args);
+        app.TaskName          = j.value("TaskName",          app.TaskName);
+        app.WaitForProcess    = j.value("WaitForProcess",    app.WaitForProcess);
+        app.WaitTimeoutMs     = j.value("WaitTimeoutMs",     app.WaitTimeoutMs);
+        app.DelayAfterStartMs = j.value("DelayAfterStartMs", app.DelayAfterStartMs);
+        app.Enabled           = j.value("Enabled",           app.Enabled);
+        app.Required          = j.value("Required",          app.Required);
+        app.RunMode           = StartupRunModeFromString(j.value("RunMode", std::wstring()), StartupRunMode::NormalExe);
+    }
+
+    void to_json(json &j, const StartupApp &app)
+    {
+        j = json{
+            {"Name",              app.Name},
+            {"Enabled",           app.Enabled},
+            {"RunMode",           StartupRunModeToString(app.RunMode)},
+            {"Path",              app.Path},
+            {"Args",              app.Args},
+            {"TaskName",          app.TaskName},
+            {"WaitForProcess",    app.WaitForProcess},
+            {"WaitTimeoutMs",     app.WaitTimeoutMs},
+            {"DelayAfterStartMs", app.DelayAfterStartMs},
+            {"Required",          app.Required}
+        };
+    }
 
     LogLevels       Config::LogLevel = LogLevels::Disabled;
     std::wstring    Config::LogPath = L"";
@@ -62,6 +168,9 @@ namespace AnyFSE::Configuration
     DWORD           Config::RestartDelay = 1000;
     std::list<StartupApp> Config::StartupApps;
     bool            Config::ExitFSEOnHomeExit = false;
+    DesktopExitAction Config::OnDesktopExit = DesktopExitAction::None;
+    std::wstring    Config::ExitCommandPath = L"";
+    std::wstring    Config::ExitCommandArgs = L"";
 
     int             Config::UpdateCheckInterval = -2;
     std::wstring    Config::UpdateLastCheck;
@@ -110,6 +219,9 @@ namespace AnyFSE::Configuration
     {
         json config = GetConfig();
         ExitFSEOnHomeExit       = config.value(jp("/Extra/ExitFSEOnHomeExit"), false);
+        OnDesktopExit          = DesktopExitActionFromString(config.value(jp("/Exit/OnDesktopExit"), std::wstring(L"None")));
+        ExitCommandPath        = config.value(jp("/Exit/CommandPath"), std::wstring());
+        ExitCommandArgs        = config.value(jp("/Exit/CommandArgs"), std::wstring());
     }
 
     void Config::Load()
@@ -139,6 +251,9 @@ namespace AnyFSE::Configuration
         SplashVideoPause        = config.value(jp("/Splash/Video/Pause"),    true);
         StartupApps             = config.value(jp("/StartupApps"),           std::list<StartupApp>());
         ExitFSEOnHomeExit       = config.value(jp("/Extra/ExitFSEOnHomeExit"), false);
+        OnDesktopExit          = DesktopExitActionFromString(config.value(jp("/Exit/OnDesktopExit"), std::wstring(L"None")));
+        ExitCommandPath        = config.value(jp("/Exit/CommandPath"), std::wstring());
+        ExitCommandArgs        = config.value(jp("/Exit/CommandArgs"), std::wstring());
 
         UpdatePreRelease        = config.value(jp("/Update/PreRelease"),     false);
         UpdateNotifications     = config.value(jp("/Update/Notifications"),  true);
@@ -236,6 +351,9 @@ namespace AnyFSE::Configuration
         config["StartupApps"]                   = StartupApps;
 
         config["Extra"]["ExitFSEOnHomeExit"]    = ExitFSEOnHomeExit;
+        config["Exit"]["OnDesktopExit"]        = DesktopExitActionToString(OnDesktopExit);
+        config["Exit"]["CommandPath"]          = ExitCommandPath;
+        config["Exit"]["CommandArgs"]          = ExitCommandArgs;
 
         config["Update"]["PreRelease"]          = UpdatePreRelease;
         config["Update"]["Notifications"]       = UpdateNotifications;

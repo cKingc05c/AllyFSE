@@ -50,6 +50,22 @@ namespace AnyFSE::Configuration
         Cortex
     };
 
+    enum class StartupRunMode
+    {
+        NormalExe = 0,
+        ElevatedTask,
+        Protocol,
+        Script
+    };
+
+    enum class DesktopExitAction
+    {
+        None = 0,
+        LockWorkStation,
+        RunCommand,
+        LockThenRunCommand
+    };
+
     struct LauncherConfig
     {
         LauncherType Type = LauncherType::None;
@@ -79,10 +95,22 @@ namespace AnyFSE::Configuration
 
     struct StartupApp
     {
+        std::wstring Name;
         std::wstring Path;
         std::wstring Args;
+        StartupRunMode RunMode = StartupRunMode::NormalExe;
+        std::wstring TaskName;
+        std::wstring WaitForProcess;
+        DWORD WaitTimeoutMs = 10000;
+        DWORD DelayAfterStartMs = 0;
         bool Enabled = false;
+        bool Required = false;
     };
+
+    std::wstring StartupRunModeToString(StartupRunMode mode);
+    StartupRunMode StartupRunModeFromString(const std::wstring &value, StartupRunMode defaultMode = StartupRunMode::NormalExe);
+    std::wstring DesktopExitActionToString(DesktopExitAction action);
+    DesktopExitAction DesktopExitActionFromString(const std::wstring &value, DesktopExitAction defaultAction = DesktopExitAction::None);
 
     class Config
     {
@@ -171,6 +199,9 @@ namespace AnyFSE::Configuration
             static std::list<StartupApp> StartupApps;
 
             static bool ExitFSEOnHomeExit;
+            static DesktopExitAction OnDesktopExit;
+            static std::wstring ExitCommandPath;
+            static std::wstring ExitCommandArgs;
 
             static bool         UpdatePreRelease;
             static bool         UpdateNotifications;

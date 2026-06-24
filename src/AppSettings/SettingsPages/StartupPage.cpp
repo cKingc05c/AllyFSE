@@ -1,4 +1,8 @@
+#include <algorithm>
+#include <cwchar>
+#include <string>
 #include "Tools/Event.hpp"
+#include "Tools/Process.hpp"
 #include "AppSettings/SettingsLayout.hpp"
 #include "AppSettings/SettingsDialog.hpp"
 #include "AppSettings/SettingsPages/StartupEditDlg.hpp"
@@ -8,6 +12,89 @@
 
 namespace AnyFSE::App::AppSettings::Settings::Page
 {
+    namespace
+    {
+        constexpr int StartupDataPath = 0;
+        constexpr int StartupDataArgs = 1;
+        constexpr int StartupDataName = 2;
+        constexpr int StartupDataRunMode = 3;
+        constexpr int StartupDataTaskName = 4;
+        constexpr int StartupDataWaitForProcess = 5;
+        constexpr int StartupDataWaitTimeoutMs = 6;
+        constexpr int StartupDataDelayAfterStartMs = 7;
+        constexpr int StartupDataRequired = 8;
+
+        std::wstring BoolToString(bool value)
+        {
+            return value ? L"true" : L"false";
+        }
+
+        bool BoolFromString(const std::wstring &value)
+        {
+            return value == L"1" || _wcsicmp(value.c_str(), L"true") == 0;
+        }
+
+        DWORD DwordFromString(const std::wstring &value, DWORD defaultValue)
+        {
+            if (value.empty())
+            {
+                return defaultValue;
+            }
+            try
+            {
+                return static_cast<DWORD>(std::stoul(value));
+            }
+            catch (...)
+            {
+                return defaultValue;
+            }
+        }
+
+        std::wstring GetStartupAppDisplayName(const StartupApp &app)
+        {
+            if (!app.Name.empty())
+            {
+                return app.Name;
+            }
+            if (!app.Path.empty())
+            {
+                return Config::GetApplicationName(app.Path);
+            }
+            if (!app.TaskName.empty())
+            {
+                return app.TaskName;
+            }
+            return L"Startup app";
+        }
+
+        std::wstring GetStartupAppDescription(const StartupApp &app)
+        {
+            std::wstring description = StartupRunModeToString(app.RunMode) + L": ";
+            if (app.RunMode == StartupRunMode::ElevatedTask)
+            {
+                description += app.TaskName.empty() ? L"<missing task name>" : app.TaskName;
+            }
+            else
+            {
+                description += app.Path;
+                if (!app.Args.empty())
+                {
+                    description += L" " + app.Args;
+                }
+            }
+
+            if (!app.WaitForProcess.empty())
+            {
+                description += L" | wait " + app.WaitForProcess + L" " + std::to_wstring(app.WaitTimeoutMs) + L" ms";
+                if (app.Required)
+                {
+                    description += L" required";
+                }
+            }
+            return description;
+        }
+    }
+
     void StartupPage::AddPage(std::list<SettingsLine>& settingPageList, ULONG &top)
     {
         ULONG pageTop = 0;
@@ -43,9 +130,9 @@ namespace AnyFSE::App::AppSettings::Settings::Page
 
     void StartupPage::LoadControls()
     {
-        for (auto app : Config::StartupApps)
+        for (const auto &app : Config::StartupApps)
         {
-            AddStartupAppLine(app.Path, app.Args, app.Enabled);
+            AddStartupAppLine(app);
         }
     }
 
@@ -56,14 +143,9 @@ namespace AnyFSE::App::AppSettings::Settings::Page
         for (auto pLine : m_pStartupAppLines)
         {
             Toggle *toggle = GetStartupLineToggle(pLine);
-
-            Config::StartupApps.push_back(
-                StartupApp {
-                    pLine->GetData(0),
-                    pLine->GetData(1),
-                    toggle ? toggle->GetCheck() : true
-                }
-            );
+            StartupApp app = GetStartupAppLine(pLine);
+            app.Enabled = toggle ? toggle->GetCheck() : true;
+            Config::StartupApps.push_back(app);
         }
     }
 
@@ -72,7 +154,7 @@ namespace AnyFSE::App::AppSettings::Settings::Page
         Process::StartProtocol(L"ms-settings:startupapps");
     }
 
-    void StartupPage::AddStartupAppLine(const std::wstring& path, const std::wstring& args, bool enabled )
+    void StartupPage::AddStartupAppLine(const StartupApp &app)
     {
         ULONG top = 0;
         m_startupToggles.emplace_back(m_theme);
@@ -86,7 +168,7 @@ namespace AnyFSE::App::AppSettings::Settings::Page
             Layout::StartupMenuButtonWidth, Layout::StartupMenuButtonHeight
         );
 
-        SetStartupAppLine(&line, path, args);
+        SetStartupAppLine(&line, app);
 
         line.SetMenu(
             std::vector<FluentDesign::Popup::PopupItem>
@@ -95,7 +177,7 @@ namespace AnyFSE::App::AppSettings::Settings::Page
                 FluentDesign::Popup::PopupItem(L"\xE107", Translate(L"deleteBtn"),[This = this, pLine = &line](){This->OnStartupDelete(pLine);})
             }
         );
-        startToggle.SetCheck(enabled);
+        startToggle.SetCheck(app.Enabled);
         m_pStartupPageAppsHeader->AddGroupItem(&line);
 
         m_pStartupAppLines.push_back(&line);
@@ -113,18 +195,39 @@ namespace AnyFSE::App::AppSettings::Settings::Page
         return it != m_startupToggles.end() ? &(*it) : nullptr;
     }
 
-    void StartupPage::SetStartupAppLine(SettingsLine *pLine, const std::wstring& path, const std::wstring& args)
+    StartupApp StartupPage::GetStartupAppLine(SettingsLine *pLine)
     {
-        pLine->SetData(0, path);
-        pLine->SetData(1, args);
+        StartupApp app;
+        app.Path = pLine->GetData(StartupDataPath);
+        app.Args = pLine->GetData(StartupDataArgs);
+        app.Name = pLine->GetData(StartupDataName);
+        app.RunMode = StartupRunModeFromString(pLine->GetData(StartupDataRunMode), StartupRunMode::NormalExe);
+        app.TaskName = pLine->GetData(StartupDataTaskName);
+        app.WaitForProcess = pLine->GetData(StartupDataWaitForProcess);
+        app.WaitTimeoutMs = DwordFromString(pLine->GetData(StartupDataWaitTimeoutMs), app.WaitTimeoutMs);
+        app.DelayAfterStartMs = DwordFromString(pLine->GetData(StartupDataDelayAfterStartMs), app.DelayAfterStartMs);
+        app.Required = BoolFromString(pLine->GetData(StartupDataRequired));
+        return app;
+    }
 
+    void StartupPage::SetStartupAppLine(SettingsLine *pLine, const StartupApp &app)
+    {
+        pLine->SetData(StartupDataPath, app.Path);
+        pLine->SetData(StartupDataArgs, app.Args);
+        pLine->SetData(StartupDataName, app.Name);
+        pLine->SetData(StartupDataRunMode, StartupRunModeToString(app.RunMode));
+        pLine->SetData(StartupDataTaskName, app.TaskName);
+        pLine->SetData(StartupDataWaitForProcess, app.WaitForProcess);
+        pLine->SetData(StartupDataWaitTimeoutMs, std::to_wstring(app.WaitTimeoutMs));
+        pLine->SetData(StartupDataDelayAfterStartMs, std::to_wstring(app.DelayAfterStartMs));
+        pLine->SetData(StartupDataRequired, BoolToString(app.Required));
 
-        pLine->SetName(Config::GetApplicationName(path));
-        pLine->SetDescription(path + L" " + args);
+        pLine->SetName(GetStartupAppDisplayName(app));
+        pLine->SetDescription(GetStartupAppDescription(app));
 
-        if (!path.empty())
+        if (!app.Path.empty())
         {
-            pLine->SetIcon(path);
+            pLine->SetIcon(app.Path);
         }
     }
 
@@ -135,11 +238,22 @@ namespace AnyFSE::App::AppSettings::Settings::Page
 
     void StartupPage::OnStartupModify(SettingsLine * pLine)
     {
-        std::wstring path = pLine ? pLine->GetData(0) : L"";
-        std::wstring args = pLine ? pLine->GetData(1) : L"";
+        StartupApp app = pLine ? GetStartupAppLine(pLine) : StartupApp();
+        std::wstring path = app.Path;
+        std::wstring args = app.Args;
         if (IDOK == StartupEditDlg::EditApp(m_dialog.GetHwnd(), path, args))
         {
-            pLine ? SetStartupAppLine(pLine, path, args) : AddStartupAppLine(path, args, true);
+            app.Path = path;
+            app.Args = args;
+            if (pLine)
+            {
+                SetStartupAppLine(pLine, app);
+            }
+            else
+            {
+                app.Enabled = true;
+                AddStartupAppLine(app);
+            }
             m_dialog.UpdateLayout();
         }
     }
