@@ -47,6 +47,72 @@ namespace AnyFSE::App::ExitFSE
         return false;
     }
 
+    bool RunDesktopExitCommand()
+    {
+        if (Config::ExitCommandPath.empty())
+        {
+            log.Warn("Desktop-exit command path is empty");
+            return false;
+        }
+
+        log.Info("Desktop-exit command start: %s %s",
+            Unicode::to_string(Config::ExitCommandPath).c_str(),
+            Unicode::to_string(Config::ExitCommandArgs).c_str());
+        DWORD processId = Process::StartProcess(Config::ExitCommandPath, Config::ExitCommandArgs);
+        if (processId == 0)
+        {
+            log.Error("Desktop-exit command failed to start: %s", Unicode::to_string(Config::ExitCommandPath).c_str());
+            return false;
+        }
+
+        log.Info("Desktop-exit command started pid=%lu", processId);
+        return true;
+    }
+
+    void ExecuteDesktopExitAction()
+    {
+        Config::LoadExitFSEOnHomeExit();
+        DesktopExitAction action = Config::OnDesktopExit;
+        log.Debug("Desktop-exit action selected: %s", Unicode::to_string(DesktopExitActionToString(action)).c_str());
+
+        switch (action)
+        {
+            case DesktopExitAction::LockWorkStation:
+            {
+                if (LockWorkStation())
+                {
+                    log.Info("Desktop-exit action executed: LockWorkStation");
+                }
+                else
+                {
+                    log.Error(log.APIError(), "Desktop-exit action failed: LockWorkStation");
+                }
+                break;
+            }
+            case DesktopExitAction::RunCommand:
+            {
+                RunDesktopExitCommand();
+                break;
+            }
+            case DesktopExitAction::LockThenRunCommand:
+            {
+                if (LockWorkStation())
+                {
+                    log.Info("Desktop-exit action executed: LockWorkStation");
+                }
+                else
+                {
+                    log.Error(log.APIError(), "Desktop-exit action failed: LockWorkStation");
+                }
+                RunDesktopExitCommand();
+                break;
+            }
+            case DesktopExitAction::None:
+            default:
+                log.Debug("Desktop-exit action executed: None");
+                break;
+        }
+    }
     bool WaitHomeAppExit()
     {
         if (!Config::ExitFSEOnHomeExit || !GamingExperience::IsFullscreenMode() || IsMutexExists() || !Launchers::IsLauncherActiveOrMinimized() )
@@ -88,6 +154,7 @@ namespace AnyFSE::App::ExitFSE
             }
             if (!GamingExperience::IsFullscreenMode())
             {
+                ExecuteDesktopExitAction();
                 Sleep(2000);
             }
             log.Trace("Waiting ExitFSE: Complete, mode is %s", GamingExperience::IsFullscreenMode() ? "FSE" : "Desktop");
