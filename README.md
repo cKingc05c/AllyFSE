@@ -1,134 +1,170 @@
-# AnyFSE Home Application
-![DownloadCountTotal](https://img.shields.io/github/downloads/ashpynov/AnyFSE/AnyFSE.Installer.exe?displayAssetName=false&style=plastic) [![DownloadCountLatest](https://img.shields.io/github/downloads/ashpynov/AnyFSE/latest/AnyFSE.Installer.exe?displayAssetName=false&style=plastic)](https://github.com/ashpynov/AnyFSE/releases/latest) [![LatestVersion](https://img.shields.io/github/v/tag/ashpynov/AnyFSE?label=Latest%20version&style=plastic)](https://github.com/ashpynov/AnyFSE/releases/latest) [![License](https://img.shields.io/github/license/ashpynov/AnyFSE?style=plastic)](LICENCE)
+# AllyFSE
 
-The AnyFSE Home application aims to give users the ability to use their favorite launchers as Home applications for Gaming Full Screen Experience mode on modern Windows.
+AllyFSE is a ROG Ally / Windows handheld Full Screen Experience session manager based on AnyFSE. It lets Windows use this app as the Gaming Home application, then starts your chosen launcher such as Playnite, Steam Big Picture, BigBox, Armoury Crate SE, One Game Launcher, RetroBat, Kodi, Razer Cortex, or a custom executable.
 
-[Latest Release](https://github.com/ashpynov/AnyFSE/releases/latest)
-
-[Help and Discussions](https://discord.gg/hnVwuTzDmk)
-
-AnyFSE can be selected as Home application for full screen experience and will execute users favourite launchers like Playnite, Steam Big Picture mode, LaunchBox, etc. in full screen experience mode (Xbox mode).
-
-Some other launchers potentially can be supported too with minor customizations
-
-## Kudos
-
-- Way how to create home app was inspired by @driver1998 work [FullScreenExperienceShell](https://github.com/driver1998/FullScreenExperienceShell). Also thanks to discord user 'silicon' who show me that project.
-- Handling of ASUS Rog Ally buttons inspired by such projects like [Handheld Companion](https://github.com/Valkirie/HandheldCompanion) and [g-helper](https://github.com/seerge/g-helper).
-- Discord users 'Marecki' and 'TwoTracks' who helped me to design and test such features like Xbox Ally support and Steam buttons mapping.
+This fork keeps the inherited AnyFSE package identity, executable names, protocol, install path, and config path for now. Visible product branding is AllyFSE, but a full identity rename needs coordinated AppX, signing, installer, updater, protocol, and Gaming Home registration changes.
 
 ## Features
 
-- Ability to select one of supported launchers:
-    - [Playnite Fullscreen](https://playnite.link)
-    - [Playnite Desktop](https://playnite.link)
-    - [Steam Big Picture Mode](https://store.steampowered.com/about/)
-    - [LaunchBox BigBox](https://www.launchbox-app.com/download)
-    - [One Game Launcher](https://ogl.app/)
-    - [RetroBat](https://www.retrobat.org/download/)
-    - [Armoury Crate SE](https://armoury-crate.com/#download)
-    - [Kodi](https://kodi.tv/)
-    - [Razer Cortex](https://www.razer.com/cortex)
-- Ability to use a custom executable or other installed native Gaming Home application.
-- Maximized performance during minimal runtime memory and perfomance footprint due to C++ sorce code.
-- Ability to navigate to download pages of supported launchers.
-- User defined video splash during launchers start.
-- Custom startup application launch in Fullscreen Experience mode.
-- Proper handling of Playnite restart in Fullscreen / Desktop modes.
-- ASUS ROG Ally buttons "ArmouryCrate", "Command Center", and "Library" re-mapping including "Mode+" combos.
-- Gamepad friendly navigation in application Settings dialog
+- Launch Playnite, Steam Big Picture, BigBox, Armoury Crate SE, One Game Launcher, RetroBat, Kodi, Razer Cortex, native Gaming Home apps, or a custom launcher.
+- Run configured startup apps before the home launcher starts.
+- Trigger an existing elevated scheduled task during FSE startup.
+- Wait for startup-app processes before launching the home launcher.
+- Exit FSE when the home launcher exits, with optional lock-on-desktop-exit behavior.
+- Reenter FSE with the `/FSE` command.
+- ASUS ROG Ally button remapping/filter support inherited from AnyFSE.
 
-## How it is works
+## Boot Flow
 
-If AnyFSE is selected as home application:
+```text
+Windows auto-login
+-> Windows enters FSE
+-> Windows launches AllyFSE as Gaming Home app
+-> AllyFSE launches StartupApps
+-> AllyFSE triggers optional elevated scheduled tasks
+-> AllyFSE waits for configured startup processes
+-> AllyFSE launches Playnite, Steam, BigBox, or your selected home launcher
+```
 
-1. Windows starts AnyFSE as fullscreen home application (Fullscreen experience or Xbox mode).
-2. AnyFSE read configuration and start launcher selected by user.
-3. Show splash screen (text or video).
-4. Wait till launcher executed (try to detect it main window).
-5. Close splash screen and exit
+## Startup Apps
 
-Same for cases when AnyFSE executed from gamebar.
+Existing AnyFSE startup-app entries remain supported:
 
-In case if ASUS ROG Ally buttons remaping is configured it will start second instance as background app that listen such buttons and execute handlers on keypress.
+```json
+{
+  "Path": "C:\\SomeApp\\App.exe",
+  "Args": "",
+  "Enabled": true
+}
+```
 
-## ASUS ROG Ally buttons
+New startup-app entries can use these fields:
 
-On ASUS ROG Ally devices AnyFSE can redefine the dedicated system buttons:
+```json
+{
+  "Name": "Handheld Companion",
+  "Enabled": true,
+  "RunMode": "ElevatedTask",
+  "Path": "",
+  "Args": "",
+  "TaskName": "Handheld Companion Elevated",
+  "WaitForProcess": "HandheldCompanion.exe",
+  "WaitTimeoutMs": 10000,
+  "DelayAfterStartMs": 0,
+  "Required": true
+}
+```
 
-- Armoury Crate
-- Command Center / Library
+Supported `RunMode` values:
 
-Each button can be assigned to a custom action. AnyFSE also supports combinations with the Mode button, the usual back paddle on ROG Ally devices, so the same physical buttons can have an additional `Mode + button` action.
+- `NormalExe`: launch `Path` with `Args` like classic AnyFSE startup apps.
+- `ElevatedTask`: run `C:\Windows\System32\schtasks.exe /run /tn "<TaskName>"`.
+- `Protocol`: launch `Path` as a URI/protocol when it contains `://`.
+- `Script`: launch `.cmd`, `.bat`, or `.ps1` wrappers. PowerShell scripts are started with `-File`; AllyFSE does not add an execution-policy bypass.
 
-Armoury Crate SE and the ASUS Optimization service normally receive these button events too. If both AnyFSE and ASUS software handle the same input, the native ASUS action can still be triggered. To avoid this, either uninstall Armoury Crate SE or let AnyFSE filter these inputs before ASUS Optimization handles them.
+After each enabled startup app is launched, AllyFSE applies `DelayAfterStartMs` and then waits for `WaitForProcess` until `WaitTimeoutMs` elapses. Timeouts are logged and do not hard-crash FSE; the home launcher still starts.
 
-For this purpose AnyFSE includes the `AnyFSE ACSE Filter Injector` service. The service monitors the ASUS Optimization process and injects a small filter into the device-read path used by that process. The filter only targets the ASUS-specific button reports required for Armoury Crate, Command Center, and Library buttons handling. Other input processing is left untouched.
+## Handheld Companion Elevated Startup
 
-This component is not in the critical path for normal input, launcher startup, or Full Screen Experience operation. It is enabled only when ASUS ROG Ally button remapping is enabled, and it is designed to make the smallest practical change: suppress the conflicting ASUS button events while allowing the rest of the system and device input stack to continue normally.
+Create a scheduled task named `Handheld Companion Elevated` with:
 
+- Run only when user is logged on
+- Run with highest privileges
+- Trigger can be omitted or left disabled if AllyFSE will trigger it manually
+- Action: `C:\Program Files\Handheld Companion\HandheldCompanion.exe`
+- Start in: `C:\Program Files\Handheld Companion`
+- Allow start on battery
+- Multiple instances: Ignore new
 
-## Install, Configure and Uninstall
+Then add this to AllyFSE startup apps:
+
+```json
+{
+  "Name": "Handheld Companion",
+  "Enabled": true,
+  "RunMode": "ElevatedTask",
+  "TaskName": "Handheld Companion Elevated",
+  "WaitForProcess": "HandheldCompanion.exe",
+  "WaitTimeoutMs": 10000,
+  "Required": true
+}
+```
+
+AllyFSE triggers the task during FSE startup. It does not create the task in this first pass.
+
+## Lock On Desktop Exit
+
+The existing `Extra.ExitFSEOnHomeExit` setting controls whether AllyFSE exits Full Screen Experience after the home launcher closes. The new `Exit` block controls what happens after desktop mode is detected.
+
+```json
+{
+  "Extra": {
+    "ExitFSEOnHomeExit": true
+  },
+  "Exit": {
+    "OnDesktopExit": "LockWorkStation",
+    "CommandPath": "",
+    "CommandArgs": ""
+  }
+}
+```
+
+Supported `OnDesktopExit` values:
+
+- `None`
+- `LockWorkStation`
+- `RunCommand`
+- `LockThenRunCommand`
+
+`LockWorkStation` calls the native Windows `LockWorkStation()` API immediately after AllyFSE confirms Windows has left FSE for desktop mode.
+
+## Reenter FSE
+
+Bind this command in Handheld Companion or another launcher:
+
+```cmd
+C:\Program Files\AnyFSE\AnyFSE.exe /FSE
+```
+
+If Windows is currently in desktop mode, this asks Windows to enter Gaming Full Screen Experience again. If already in FSE, it does nothing.
+
+TODO: after a coordinated full identity rename, this command should become `C:\Program Files\AllyFSE\AllyFSE.exe /FSE`. That rename must update the AppX identity, package family name, AppUserModelId, executable names, installer/uninstaller/updater paths, signing identity, and Windows Gaming Home app registration together.
+
+## ASUS ROG Ally Buttons
+
+On ASUS ROG Ally devices AllyFSE can redefine the dedicated Armoury Crate, Command Center, and Library buttons, including Mode+ combinations. The inherited ACSE Filter Injector service can suppress conflicting ASUS Optimization button handling while leaving the rest of the input stack alone.
+
+## Install And Configure
 
 > [!NOTE]
-> AnyFSE is not implement enabling FSE mode support in windows. It is require either supported Handheld device like ASUS ROG Ally or enabling this mode on other devices using "Enabler" tool e.g. [XboxFullscreenExperienceTool](https://github.com/8bit2qubit/XboxFullscreenExperienceTool).
+> AllyFSE does not enable FSE support in Windows by itself. You need a supported handheld device such as ASUS ROG Ally, or another tool that enables Gaming Full Screen Experience support.
 
-### How to install
+Launch `AnyFSE.Installer.exe`, wait for it to finish, then configure AllyFSE from the Start menu entry. Your launcher should be installed separately.
 
-Launch `AnyFSE.Installer.exe`, wait for it to finish, then configure AnyFSE from the Start menu entry.
+AllyFSE only acts as the home launcher when it is selected in Windows Settings -> Gaming -> Full screen experience.
 
-Your launcher should be installed additionally.
+## Splash Videos
 
-Please note: that AnyFSE work only when it is selected as home application in Settings->Gaming->Full screen experience.
+AllyFSE may show shuffled video as a splash screen while your launcher is loading. Create a `splash` folder in `C:\ProgramData\AnyFSE` and put `.mp4` or `.webm` videos there.
 
+You can specify a loop point in the filename, for example `splash.m4000.mp4` or `other_splash.5000.webm`:
 
-### How to launch and configure
+- `m` or `M`: mute video during loop
+- number: loop position in milliseconds
 
-In start menu find AnyFSE application. Press right mouse key and choose 'Configure' task.
+## Cleanup If Uninstall Was Broken
 
-### Cleanup if uninstall was broken
-
-If uninstall failed or left files behind, clean up the remaining pieces manually.
 Run these commands from an elevated Command Prompt.
-
-Remove the identity package:
 
 ```cmd
 powershell -Command "Get-AppxPackage *AnyFSE* | Remove-AppxPackage"
-```
-
-Remove the ACSE Filter injector service:
-
-```cmd
 sc stop ACSEFilterInjector
 sc delete ACSEFilterInjector
-```
-
-Delete the installation folder:
-
-```cmd
 rmdir /s /q "%ProgramFiles%\AnyFSE"
-```
-
-Remove the uninstall registration from the registry:
-
-```cmd
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AnyFSE" /f
 ```
 
+## Future TODO
 
-## Splash Videos
-AnyFSE may show shuffled video as splash during your launcher is loading.
-
-To do this, Create folder 'splash' in data folder (c:\ProgramData\AnyFSE) and put there you favourite mp4 or webm videos. Files will be shuffled each time splash screen is shown.
-
-For sure it will be good idea to suppress native splash screens of launchers, to do so enable custom settings and add startup argument to prevent native splash (for Playnite it is ```--hidesplashscreen``` option).
-
-
-### Filename control
-You can specify custom position of loop via filename. To do this - name should contain additional part before extension like:
-
-```splash.m4000.mp4``` or ```other_splash.5000.webm``` here is ***m4000*** and ***5000*** instructions to
-- 'm' or 'M' - mute video during loop
-- '4000' and '5000' position in milliseconds from start of video to rewind to during loop.
-
+- Full AllyFSE package/binary/install-path identity rename.
+- Plugged-in idle display behavior.

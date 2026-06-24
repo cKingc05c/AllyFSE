@@ -5,7 +5,7 @@
     <VersionRevision>249</VersionRevision>
     <AssemblyProduct>AnyFSE</AssemblyProduct>
     <AssemblyCompany>Artem Shpynov</AssemblyCompany>
-    <AssemblyDescription>AnyFSE Home application launcher</AssemblyDescription>
+    <AssemblyDescription>AllyFSE handheld FSE session manager</AssemblyDescription>
     <AssemblyCopyright>Copyright © 2026 Artem Shpynov. All rights reserved.</AssemblyCopyright>
     <AssemblyInternalName>$(TargetName)</AssemblyInternalName>
     <PublisherCN>DDCC7751-898D-4BC9-B80C-4AA73E5D5762</PublisherCN>

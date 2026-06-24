@@ -48,8 +48,8 @@ namespace AnyFSE
             fs::remove_all(path);
         }
 
-        LogManager::Initialize("AnyFSE.Installer", LogLevels::Trace);
-        log.Info("Starting Installation AnyFSE v%s to %s", APP_VERSION, path.string().c_str());
+        LogManager::Initialize("AllyFSE.Installer", LogLevels::Trace);
+        log.Info("Starting Installation AllyFSE v%s to %s", APP_VERSION, path.string().c_str());
 
         bool acseServiceWasRunning = IsInjectorServiceRun();
         bool certificateWasInstalled = IsCertificatesWasInstalled();

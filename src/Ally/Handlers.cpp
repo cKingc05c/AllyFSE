@@ -31,7 +31,7 @@ namespace Ally::Handlers
         { L"ArmouryCrate", L"Armoury Crate SE", Handlers::OpenArmouryCrate },
         { L"SteamOverlay", L"Steam Overlay", Handlers::OpenSteamOverlay },
         { L"SteamQAM", L"Steam Quick Menu (Ctrl+2)", Handlers::OpenSteamQuickMenu },
-        { L"AnyFSESettings", L"AnyFSE Settings", Handlers::OpenAnyFSESettings },
+        { L"AnyFSESettings", L"AllyFSE Settings", Handlers::OpenAnyFSESettings },
         { L"Keyboard", L"On-Screen Keyboard", Handlers::ShowKeyboard },
     };
 

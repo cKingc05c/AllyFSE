@@ -52,6 +52,10 @@ namespace AnyFSE
 #define VER_PRODUCT_NAME "AnyFSE"
 #endif
 
+
+#ifndef VER_DISPLAY_NAME
+#define VER_DISPLAY_NAME "AllyFSE"
+#endif
 #define IDR_EMBEDDED_ZIP 3
 
 #ifndef APP_VERSION

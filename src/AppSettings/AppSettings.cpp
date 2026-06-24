@@ -54,7 +54,7 @@ int WINAPI Main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, i
 
     Config::Load();
     Config::GetStartupConfigured();
-    AnyFSE::Logging::LogManager::Initialize("AnyFSE.Settings", Config::LogLevel, Config::LogPath);
+    AnyFSE::Logging::LogManager::Initialize("AllyFSE.Settings", Config::LogLevel, Config::LogPath);
     AnyFSE::Tools::Localization::Initialize(Config::Locale);
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -66,4 +66,3 @@ int WINAPI Main(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, i
     } while (result == IDRETRY);
     return result;
 };
-

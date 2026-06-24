@@ -53,7 +53,7 @@
         </uap3:Extension>
         <uap:Extension Category="windows.protocol">
           <uap:Protocol Name="anyfse">
-            <uap:DisplayName>AnyFSE Protocol</uap:DisplayName>
+            <uap:DisplayName>AllyFSE Protocol</uap:DisplayName>
           </uap:Protocol>
         </uap:Extension>
       </Extensions>

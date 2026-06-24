@@ -2,6 +2,11 @@
 
 namespace AnyFSE::AppConstants
 {
+    // TODO(AllyFSE identity): visible branding is AllyFSE, but package identity,
+    // AppUserModelId, protocol, executable names, install/config paths,
+    // certificate/publisher, custom capability registration, updater assets,
+    // and Windows Gaming Home registration remain inherited from AnyFSE for now.
+    // A full rename must update and test all of those surfaces together.
     // Package / identity
     inline constexpr wchar_t PackageFamilyName[] = L"ArtemShpynov.AnyFSE_by4wjhxmygwn4";
     inline constexpr wchar_t AppUserModelId[] = L"ArtemShpynov.AnyFSE_by4wjhxmygwn4!App";

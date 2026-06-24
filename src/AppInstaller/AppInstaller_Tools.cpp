@@ -115,7 +115,7 @@ namespace AnyFSE
         const DWORD estimatedSizeKb = static_cast<DWORD>((GetDirectorySize(installPath) + 1023) / 1024);
 
         return
-            Registry::WriteString(registryPath, L"DisplayName", Unicode::to_wstring(VER_PRODUCT_NAME)) &&
+            Registry::WriteString(registryPath, L"DisplayName", Unicode::to_wstring(VER_DISPLAY_NAME)) &&
             Registry::WriteString(registryPath, L"DisplayVersion", Unicode::to_wstring(APP_VERSION)) &&
             Registry::WriteString(registryPath, L"Publisher", Unicode::to_wstring(VER_COMPANY_NAME)) &&
             Registry::WriteString(registryPath, L"InstallLocation", installPath) &&

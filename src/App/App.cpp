@@ -198,7 +198,7 @@ namespace AnyFSE::App
         Config::Load();
         AnyFSE::Tools::Localization::Initialize(Config::Locale);
 
-        AnyFSE::Logging::LogManager::Initialize("AnyFSE", Config::LogLevel, Config::LogPath);
+        AnyFSE::Logging::LogManager::Initialize("AllyFSE", Config::LogLevel, Config::LogPath);
         log.Debug("Application is started (hInstance=%08x) args: [%s]", hInstance, lpCmdLine);
 
         if (Ally::IsSupported() && Config::AllyHidEnable)
@@ -207,7 +207,7 @@ namespace AnyFSE::App
             if (AsAllyHid(lpCmdLine))
             {
                 log.Debug("Ally start as HIDListener\n");
-                AnyFSE::Logging::LogManager::Initialize("AnyFSE/AllyHID", Config::LogLevel, Config::LogPath);
+                AnyFSE::Logging::LogManager::Initialize("AllyFSE/AllyHID", Config::LogLevel, Config::LogPath);
                 return Ally::HIDListener(NULL);
             }
 
@@ -222,7 +222,7 @@ namespace AnyFSE::App
             return 0;
         }
 
-        AnyFSE::Logging::LogManager::Initialize("AnyFSE", Config::LogLevel, Config::LogPath);
+        AnyFSE::Logging::LogManager::Initialize("AllyFSE", Config::LogLevel, Config::LogPath);
 
         if (FindWindow(AppConstants::MainWindowClass, NULL))
         {

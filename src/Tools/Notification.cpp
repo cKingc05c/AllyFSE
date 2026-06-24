@@ -38,7 +38,7 @@ namespace AnyFSE::Tools
             notifyData.uID = 1;
             notifyData.uFlags = NIF_ICON | NIF_TIP | NIF_INFO;
             notifyData.hIcon = LoadIconW(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON));
-            wcscpy_s(notifyData.szTip, _countof(notifyData.szTip), L"AnyFSE");
+            wcscpy_s(notifyData.szTip, _countof(notifyData.szTip), L"AllyFSE");
             Shell_NotifyIconW(NIM_ADD, &notifyData);
         }
 
@@ -74,12 +74,12 @@ namespace AnyFSE::Tools
             return;
         }
         std::wstring msg = L"New version " + version + L" is available.";
-        Tools::Notification::Show(hwnd, L"AnyFSE Update available", msg);
+        Tools::Notification::Show(hwnd, L"AllyFSE Update available", msg);
     }
 
     void Notification::ShowCurrentVersion(HWND hwnd, bool installed)
     {
         std::wstring msg = L"Current version is " + Unicode::to_wstring(VER_VERSION_STR);
-        Tools::Notification::Show(hwnd, installed ? L"AnyFSE was installed" : L"AnyFSE was updated", msg);
+        Tools::Notification::Show(hwnd, installed ? L"AllyFSE was installed" : L"AllyFSE was updated", msg);
     }
 }
