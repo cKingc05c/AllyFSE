@@ -209,6 +209,140 @@ namespace AnyFSE::Tools::Process
         return processId;
     }
 
+    DWORD StartScript(const std::wstring &path, const std::wstring &arguments)
+    {
+        std::filesystem::path scriptPath(path);
+        const std::wstring extension = scriptPath.extension().wstring();
+
+        if (_wcsicmp(extension.c_str(), L".cmd") == 0 || _wcsicmp(extension.c_str(), L".bat") == 0)
+        {
+            wchar_t comSpec[MAX_PATH] = {0};
+            std::wstring command = L"C:\\Windows\\System32\\cmd.exe";
+            if (GetEnvironmentVariableW(L"ComSpec", comSpec, MAX_PATH) > 0)
+            {
+                command = comSpec;
+            }
+
+            std::wstring scriptArgs = L"/c \"" + path + L"\"";
+            if (!arguments.empty())
+            {
+                scriptArgs += L" " + arguments;
+            }
+            return StartProcess(command, scriptArgs);
+        }
+
+        if (_wcsicmp(extension.c_str(), L".ps1") == 0)
+        {
+            std::wstring scriptArgs = L"-NoProfile -File \"" + path + L"\"";
+            if (!arguments.empty())
+            {
+                scriptArgs += L" " + arguments;
+            }
+            return StartProcess(L"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", scriptArgs);
+        }
+
+        return StartProcess(path, arguments);
+    }
+
+    DWORD StartScheduledTask(const std::wstring &taskName)
+    {
+        if (taskName.empty())
+        {
+            log.Warn("Scheduled task name is empty");
+            return ERROR_INVALID_PARAMETER;
+        }
+
+        std::wstring command = L"C:\\Windows\\System32\\schtasks.exe";
+        std::wstring fullCommand = L"\"" + command + L"\" /run /tn \"" + taskName + L"\"";
+
+        STARTUPINFOW si = {0};
+        PROCESS_INFORMATION pi = {0};
+        si.cb = sizeof(si);
+
+        std::vector<wchar_t> cmdLine(fullCommand.begin(), fullCommand.end());
+        cmdLine.push_back(L'\0');
+
+        log.Debug("Trigger scheduled task: %s", Unicode::to_string(taskName).c_str());
+        if (!CreateProcessW(
+            NULL,
+            cmdLine.data(),
+            NULL,
+            NULL,
+            FALSE,
+            CREATE_NO_WINDOW,
+            NULL,
+            NULL,
+            &si,
+            &pi))
+        {
+            DWORD error = GetLastError();
+            log.Error(log.APIError(error), "Can't trigger scheduled task: %s", Unicode::to_string(taskName).c_str());
+            return error;
+        }
+
+        WaitForSingleObject(pi.hProcess, INFINITE);
+
+        DWORD exitCode = ERROR_SUCCESS;
+        if (!GetExitCodeProcess(pi.hProcess, &exitCode))
+        {
+            exitCode = GetLastError();
+            log.Error(log.APIError(exitCode), "Can't read scheduled task trigger result: %s", Unicode::to_string(taskName).c_str());
+        }
+        else if (exitCode == ERROR_SUCCESS)
+        {
+            log.Debug("Scheduled task trigger succeeded: %s", Unicode::to_string(taskName).c_str());
+        }
+        else
+        {
+            log.Warn("Scheduled task trigger exited with code %lu: %s", exitCode, Unicode::to_string(taskName).c_str());
+        }
+
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        return exitCode;
+    }
+
+    DWORD WaitForProcess(const std::wstring &processName, DWORD timeoutMs)
+    {
+        if (processName.empty())
+        {
+            return 0;
+        }
+
+        std::filesystem::path processPath(processName);
+        std::wstring targetName = processPath.filename().wstring();
+        if (targetName.empty())
+        {
+            targetName = processName;
+        }
+
+        const ULONGLONG start = GetTickCount64();
+        const ULONGLONG timeout = timeoutMs;
+        do
+        {
+            DWORD processId = FindFirstByName(targetName);
+            if (processId != 0)
+            {
+                return processId;
+            }
+
+            if (timeoutMs == 0)
+            {
+                break;
+            }
+
+            ULONGLONG elapsed = GetTickCount64() - start;
+            if (elapsed >= timeout)
+            {
+                break;
+            }
+
+            DWORD sleepMs = static_cast<DWORD>(std::min<ULONGLONG>(250, timeout - elapsed));
+            Sleep(sleepMs);
+        } while (true);
+
+        return 0;
+    }
     // Callback function for EnumWindows
     struct WindowSearchData
     {

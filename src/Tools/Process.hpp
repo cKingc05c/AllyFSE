@@ -35,6 +35,9 @@ namespace AnyFSE::Tools::Process
     DWORD FindFirstByName(const std::wstring& processName);
     DWORD StartProtocol(const std::wstring &command);
     DWORD StartProcess(const std::wstring &command, const std::wstring &arguments);
+    DWORD StartScript(const std::wstring &path, const std::wstring &arguments);
+    DWORD StartScheduledTask(const std::wstring &taskName);
+    DWORD WaitForProcess(const std::wstring &processName, DWORD timeoutMs);
     HWND  GetWindow(const std::wstring &processName, DWORD exStyle, const std::wstring &className, const std::wstring &windowTitle, DWORD style=0, DWORD noStyle=0);
     HWND  GetWindow(const std::set<DWORD>& processIds, DWORD exStyle, const std::wstring &className =L"", const std::wstring &windowTitle=L"", DWORD style=0, DWORD noStyle=0);
     size_t FindAllByName(const std::wstring &processName, std::set<DWORD> & result);

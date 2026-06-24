@@ -274,19 +274,118 @@ namespace AnyFSE::App::Launchers
         );
     }
 
-    void LaunchStartupApps()
+    static std::wstring GetStartupAppLogName(const StartupApp &app)
     {
-        log.Debug("Launching Startup Applications" );
-        for (auto app : Config::StartupApps)
+        if (!app.Name.empty())
         {
-            if (app.Enabled)
+            return app.Name;
+        }
+        if (!app.TaskName.empty())
+        {
+            return app.TaskName;
+        }
+        if (!app.Path.empty())
+        {
+            return app.Path;
+        }
+        return L"Startup app";
+    }
+
+    static bool StartStartupApp(const StartupApp &app)
+    {
+        const std::wstring name = GetStartupAppLogName(app);
+        const std::wstring runMode = StartupRunModeToString(app.RunMode);
+
+        log.Info("Startup app launch start: %s", Unicode::to_string(name).c_str());
+        log.Debug("Startup app run mode: %s", Unicode::to_string(runMode).c_str());
+
+        switch (app.RunMode)
+        {
+            case StartupRunMode::ElevatedTask:
             {
-                log.Debug("Launching: %s %s", Unicode::to_string(app.Path).c_str(), Unicode::to_string(app.Args).c_str() );
-                Process::StartProcess(app.Path, app.Args);
+                log.Debug("Trigger startup scheduled task: %s", Unicode::to_string(app.TaskName).c_str());
+                DWORD result = Process::StartScheduledTask(app.TaskName);
+                if (result == ERROR_SUCCESS)
+                {
+                    log.Info("Startup scheduled task trigger succeeded: %s", Unicode::to_string(app.TaskName).c_str());
+                    return true;
+                }
+                log.Warn("Startup scheduled task trigger failed with code %lu: %s", result, Unicode::to_string(app.TaskName).c_str());
+                return false;
+            }
+            case StartupRunMode::Protocol:
+            {
+                if (app.Path.find(L"://") == std::wstring::npos)
+                {
+                    log.Warn("Startup protocol path does not look like a URI: %s", Unicode::to_string(app.Path).c_str());
+                    return false;
+                }
+                log.Debug("Launch startup protocol: %s", Unicode::to_string(app.Path).c_str());
+                return Process::StartProtocol(app.Path) != 0;
+            }
+            case StartupRunMode::Script:
+            {
+                log.Debug("Launch startup script: %s %s", Unicode::to_string(app.Path).c_str(), Unicode::to_string(app.Args).c_str());
+                return Process::StartScript(app.Path, app.Args) != 0;
+            }
+            case StartupRunMode::NormalExe:
+            default:
+            {
+                log.Debug("Launch startup executable: %s %s", Unicode::to_string(app.Path).c_str(), Unicode::to_string(app.Args).c_str());
+                return Process::StartProcess(app.Path, app.Args) != 0;
             }
         }
     }
 
+    void LaunchStartupApps()
+    {
+        log.Debug("Launching Startup Applications" );
+        for (const auto &app : Config::StartupApps)
+        {
+            if (!app.Enabled)
+            {
+                continue;
+            }
+
+            const std::wstring name = GetStartupAppLogName(app);
+            bool started = StartStartupApp(app);
+            if (!started)
+            {
+                if (app.Required)
+                {
+                    log.Error("Required startup app did not launch successfully: %s", Unicode::to_string(name).c_str());
+                }
+                else
+                {
+                    log.Warn("Startup app did not launch successfully: %s", Unicode::to_string(name).c_str());
+                }
+            }
+
+            if (app.DelayAfterStartMs > 0)
+            {
+                log.Debug("Startup app delay after start: %lu ms for %s", app.DelayAfterStartMs, Unicode::to_string(name).c_str());
+                Sleep(app.DelayAfterStartMs);
+            }
+
+            if (!app.WaitForProcess.empty())
+            {
+                log.Debug("Waiting for startup app process %s up to %lu ms", Unicode::to_string(app.WaitForProcess).c_str(), app.WaitTimeoutMs);
+                DWORD processId = Process::WaitForProcess(app.WaitForProcess, app.WaitTimeoutMs);
+                if (processId != 0)
+                {
+                    log.Info("Startup app process detected: %s pid=%lu", Unicode::to_string(app.WaitForProcess).c_str(), processId);
+                }
+                else if (app.Required)
+                {
+                    log.Error("Required startup app process wait timed out after %lu ms: %s", app.WaitTimeoutMs, Unicode::to_string(app.WaitForProcess).c_str());
+                }
+                else
+                {
+                    log.Warn("Startup app process wait timed out after %lu ms: %s", app.WaitTimeoutMs, Unicode::to_string(app.WaitForProcess).c_str());
+                }
+            }
+        }
+    }
     bool HasStartupApps()
     {
         for (auto app : Config::StartupApps)
